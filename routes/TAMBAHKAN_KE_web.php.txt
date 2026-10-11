@@ -1,0 +1,64 @@
+<?php
+/*
+|--------------------------------------------------------------------------
+| ISI FILE INI BUKAN PENGGANTI routes/web.php — HANYA TAMBAHAN
+|--------------------------------------------------------------------------
+|
+| Setelah install Breeze, file routes/web.php Anda sudah berisi route
+| bawaan (/, /dashboard, grup /profile, dan require auth.php).
+| JANGAN ditimpa — nanti route profile hilang dan menu Breeze error.
+|
+| Yang perlu dilakukan:
+| 1. Tambahkan 3 baris "use" di bawah ini ke bagian ATAS web.php
+|    (bersama "use" yang sudah ada).
+| 2. Tempel blok "ROUTE TUGAS RUTIN 11" di BAGIAN PALING BAWAH web.php.
+|
+*/
+
+// ===== (1) Tambahkan di bagian atas web.php =====
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\EagerLoadingDemoController;
+use App\Http\Controllers\ProductController;
+
+
+// ===== (2) Tempel di bagian paling bawah web.php =====
+
+/*
+|--------------------------------------------------------------------------
+| ROUTE TUGAS RUTIN 11
+|--------------------------------------------------------------------------
+*/
+
+// ---------- Bisa diakses SIAPA SAJA, termasuk yang belum login ----------
+Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
+
+// ---------- Wajib login DULU untuk apa pun di dalam group ini ----------
+Route::middleware(['auth'])->group(function () {
+
+    // Hanya admin & editor yang boleh MASUK ke route edit/update.
+    // Ini lapisan 1 (middleware 'role'): "golongan ini boleh masuk area ini?"
+    // Lapisan 2 ada di ProductController (Gate::authorize -> ProductPolicy).
+    Route::middleware(['role:admin,editor'])->group(function () {
+        Route::get('/products/{product}/edit', [ProductController::class, 'edit'])
+            ->name('products.edit');
+        Route::put('/products/{product}', [ProductController::class, 'update'])
+            ->name('products.update');
+    });
+
+    // Hapus produk: middleware role:admin DAN ProductPolicy::delete,
+    // dua lapis sekaligus, dengan sengaja, sebagai latihan defense in depth.
+    Route::delete('/products/{product}', [ProductController::class, 'destroy'])
+        ->middleware(['role:admin'])
+        ->name('products.destroy');
+
+    // ---------- Area KHUSUS ADMIN (cuma pakai middleware 'role:admin') ----------
+    // Editor dan user biasa yang membuka URL ini akan mendapat 403.
+    Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/', [AdminController::class, 'index'])->name('index');
+
+        // BONUS: demo Eager Loading vs N+1 (hasilnya JSON jumlah query)
+        Route::get('/demo/eager-loading', EagerLoadingDemoController::class)
+            ->name('demo.eager');
+    });
+});
